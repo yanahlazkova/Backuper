@@ -1,7 +1,7 @@
 import os
 import tkinter as tk
+from customtkinter import CTkLabel, CTkEntry, CTkButton, CTkProgressBar
 from tkinter import Label, Button, messagebox, filedialog
-from tkinter.ttk import Progressbar
 import shutil
 import threading
 
@@ -19,36 +19,36 @@ class Window:
 class Interface:
     def __init__(self, window):
         self.window = window
-        self.label_source = Label(window.root, text="Исходный каталог:", font=("Arial", 10))
+        self.label_source = CTkLabel(window.root, text="Исходный каталог:", font=("Arial", 10))
         self.label_source.pack(pady=(10, 0))
 
         self.default_destination = os.path.join(os.path.expanduser("~"), "Desktop")  # Значение по умолчанию для destination_folder
 
-        self.entry_source = tk.Entry(window.root, width=40)
+        self.entry_source = CTkEntry(window.root, width=200)
         self.entry_source.insert(0, self.default_destination)  # Установка значения по умолчанию
         self.entry_source.pack()
 
-        self.button_browse_source = tk.Button(window.root, text="Выбрать исходный каталог", command=self.browse_source)
+        self.button_browse_source = CTkButton(window.root, text="Выбрать исходный каталог", command=self.browse_source)
         self.button_browse_source.pack(pady=(5, 10))
 
-        self.label_destination = Label(window.root, text="Каталог назначения:", font=("Arial", 10))
+        self.label_destination = CTkLabel(window.root, text="Каталог назначения:", font=("Arial", 10))
         self.label_destination.pack()
 
-        self.entry_destination = tk.Entry(window.root, width=40)
+        self.entry_destination = CTkEntry(window.root, width=200)
         self.entry_destination.insert(0, self.default_destination)  # Установка значения по умолчанию
         self.entry_destination.pack()
 
-        self.button_browse_destination = tk.Button(window.root, text="Выбрать каталог назначения", command=self.browse_destination)
+        self.button_browse_destination = CTkButton(window.root, text="Выбрать каталог назначения", command=self.browse_destination)
         self.button_browse_destination.pack(pady=(5, 10))
 
-        self.button_copy = Button(window.root, text="Скопировать", command=self.copy)
+        self.button_copy = CTkButton(window.root, text="Скопировать", command=self.copy)
         self.button_copy.pack()
 
-        self.progressbar = Progressbar(window.root, orient="horizontal", mode="determinate", length=200)
-        self.progressbar.pack(pady=(10, 5))
+        self.progressbar = CTkProgressBar(window.root, orientation="horizontal", mode="determinate", width=200, height=5)
+        # self.progressbar.pack(pady=(10, 5))
 
-        self.label_progress = Label(window.root, text="", font=("Arial", 10))
-        self.label_progress.pack()
+        self.label_progress = CTkLabel(window.root, text="", font=("Arial", 10))
+        # self.label_progress.pack()
 
     def browse_source(self):
         current_folder = self.entry_source.get()
@@ -89,10 +89,11 @@ class Interface:
     def update_progress(self, backuper):
         current_progress = backuper.get_progress()
         if current_progress is not None:
-            self.progressbar["value"] = current_progress
-            self.label_progress.config(text=f"{current_progress}%")
-            if current_progress < 100:
-                self.window.root.after(100, self.update_progress, backuper)
+            self.progressbar.set(current_progress / 100) # ["value"] = current_progress
+            self.label_progress.configure(text=f"{current_progress}%")
+        if current_progress < 100:
+            # Call update_progress again after a short delay
+            self.window.root.after(100, self.update_progress, backuper)
 
 class Backuper:
     def __init__(self, source_folder, destination_folder, progressbar, label_progress):
@@ -113,12 +114,21 @@ class Backuper:
                     os.makedirs(os.path.dirname(dst_file), exist_ok=True)  # Создаем подкаталоги, если они отсутствуют
                     shutil.copy2(src_file, dst_file)  # Копируем файл
                     self.current_progress += 1  # Увеличиваем текущий прогресс на 1
+                    # self.update_progress() # Обновление progress bar плсде каждого копирования файла
             messagebox.showinfo("Успех", f"Каталог {self.source_folder} успешно скопирован в {self.destination_folder}")
         except Exception as e:
             messagebox.showerror("Ошибка", f"Произошла ошибка при копировании каталога: {str(e)}")
 
     def get_progress(self):
+        # print(int((self.current_progress / self.total_files) * 100) if self.total_files > 0 else None)
         return int((self.current_progress / self.total_files) * 100) if self.total_files > 0 else None
+
+    # def update_progress(self):
+    #     current_progress = self.get_progress()
+    #     if current_progress is not None:
+    #         self.progressbar["value"] = current_progress
+    #         self.label_progress.configure(text=f"{current_progress}%")
+
 
 if __name__ == "__main__":
     window = Window("Приложение для копирования каталогов", 400, 300)
