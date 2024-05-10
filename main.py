@@ -1,31 +1,70 @@
-import os
+import os, json
 import tkinter as tk
-from customtkinter import CTkLabel, CTkEntry, CTkButton, CTkProgressBar
+from customtkinter import CTk, CTkLabel, CTkEntry, CTkButton, CTkProgressBar
 from tkinter import Label, Button, messagebox, filedialog
 import shutil
 import threading
 
+file_json = 'data_dir.json'
+json_directory = {
+    'source_directory': '',
+    'destination_directory': ''
+}
+
 
 class Window:
     def __init__(self, title, width, height):
-        self.root = tk.Tk()
+        self.root = CTk()
         self.root.title(title)
         self.root.geometry(f"{width}x{height}")
+
+        self.interface = None
+
+        # Добавляем событие на закрытие окна
+        self.root.protocol("WM_DELETE_WINDOW", self.on_close)
+        self.on_open()
 
     def run(self):
         self.root.mainloop()
 
+    def on_close(self):
+        """ при закрытии приложения выгрузить данные в файл json """
+        print("Window is closing")
+        global json_directory
+        json_directory['source_directory'] = self.interface.entry_source.get()
+        json_directory['destination_directory'] = self.interface.entry_destination.get()
+        with open(file_json, 'w') as file:
+            json.dump(json_directory, file, indent=4)
+        self.root.destroy()  # Закрытие окна
+
+    def on_open(self):
+        """ при открытии приложения загрузить данные из файла json """
+        global json_directory
+        print(json_directory)
+        if os.path.exists(file_json):
+            with open(file_json, 'r') as file:
+                json_directory = json.load(file)
+        else:
+            # default_destination = os.path.join(os.environ["USERPROFILE"], "OneDrive", "Рабочий стол")
+            default_destination = os.path.join(os.path.expanduser("~"),
+                                               "Desktop")  # Значение по умолчанию для destination_folder
+            json_directory['source_directory'] = default_destination
+            json_directory['destination_directory'] = default_destination
+        print(json_directory)
+
 
 class Interface:
     def __init__(self, window):
+        global json_directory
+
         self.window = window
+        self.window.interface = self
+
         self.label_source = CTkLabel(window.root, text="Исходный каталог:", font=("Arial", 10))
         self.label_source.pack(pady=(10, 0))
 
-        self.default_destination = os.path.join(os.path.expanduser("~"), "Desktop")  # Значение по умолчанию для destination_folder
-
         self.entry_source = CTkEntry(window.root, width=200)
-        self.entry_source.insert(0, self.default_destination)  # Установка значения по умолчанию
+        self.entry_source.insert(0, json_directory['source_directory'])  # Установка значения по умолчанию
         self.entry_source.pack()
 
         self.button_browse_source = CTkButton(window.root, text="Выбрать исходный каталог", command=self.browse_source)
@@ -35,16 +74,18 @@ class Interface:
         self.label_destination.pack()
 
         self.entry_destination = CTkEntry(window.root, width=200)
-        self.entry_destination.insert(0, self.default_destination)  # Установка значения по умолчанию
+        self.entry_destination.insert(0, json_directory['destination_directory'])  # Установка значения по умолчанию
         self.entry_destination.pack()
 
-        self.button_browse_destination = CTkButton(window.root, text="Выбрать каталог назначения", command=self.browse_destination)
+        self.button_browse_destination = CTkButton(window.root, text="Выбрать каталог назначения",
+                                                   command=self.browse_destination)
         self.button_browse_destination.pack(pady=(5, 10))
 
         self.button_copy = CTkButton(window.root, text="Скопировать", command=self.copy)
         self.button_copy.pack()
 
-        self.progressbar = CTkProgressBar(window.root, orientation="horizontal", mode="determinate", width=200, height=5)
+        self.progressbar = CTkProgressBar(window.root, orientation="horizontal", mode="determinate", width=200,
+                                          height=5)
         # self.progressbar.pack(pady=(10, 5))
 
         self.label_progress = CTkLabel(window.root, text="", font=("Arial", 10))
@@ -89,11 +130,12 @@ class Interface:
     def update_progress(self, backuper):
         current_progress = backuper.get_progress()
         if current_progress is not None:
-            self.progressbar.set(current_progress / 100) # ["value"] = current_progress
+            self.progressbar.set(current_progress / 100)  # ["value"] = current_progress
             self.label_progress.configure(text=f"{current_progress}%")
         if current_progress < 100:
             # Call update_progress again after a short delay
             self.window.root.after(100, self.update_progress, backuper)
+
 
 class Backuper:
     def __init__(self, source_folder, destination_folder, progressbar, label_progress):
@@ -120,14 +162,7 @@ class Backuper:
             messagebox.showerror("Ошибка", f"Произошла ошибка при копировании каталога: {str(e)}")
 
     def get_progress(self):
-        # print(int((self.current_progress / self.total_files) * 100) if self.total_files > 0 else None)
         return int((self.current_progress / self.total_files) * 100) if self.total_files > 0 else None
-
-    # def update_progress(self):
-    #     current_progress = self.get_progress()
-    #     if current_progress is not None:
-    #         self.progressbar["value"] = current_progress
-    #         self.label_progress.configure(text=f"{current_progress}%")
 
 
 if __name__ == "__main__":
